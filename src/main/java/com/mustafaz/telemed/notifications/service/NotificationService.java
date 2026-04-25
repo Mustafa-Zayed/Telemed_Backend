@@ -1,4 +1,4 @@
-package com.mustafaz.telemed.notifications.serevice;
+package com.mustafaz.telemed.notifications.service;
 
 import com.mustafaz.telemed.notifications.dto.NotificationDTO;
 import com.mustafaz.telemed.users.entity.User;
