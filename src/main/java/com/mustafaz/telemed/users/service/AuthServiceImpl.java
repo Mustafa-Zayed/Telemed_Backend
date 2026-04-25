@@ -15,6 +15,7 @@ import com.mustafaz.telemed.security.JwtService;
 import com.mustafaz.telemed.users.dto.LoginRequest;
 import com.mustafaz.telemed.users.dto.LoginResponse;
 import com.mustafaz.telemed.users.dto.RegistrationRequest;
+import com.mustafaz.telemed.users.dto.ResetPasswordRequest;
 import com.mustafaz.telemed.users.entity.PasswordResetCode;
 import com.mustafaz.telemed.users.entity.User;
 import com.mustafaz.telemed.users.repo.PasswordResetRepo;
@@ -199,6 +200,50 @@ public class AuthServiceImpl implements AuthService {
         return Response.builder()
                 .statusCode(200)
                 .message("Password reset code sent to your email")
+                .build();
+    }
+
+    @Override
+    public Response<?> updatePasswordViaResetCode(ResetPasswordRequest resetPasswordRequest) {
+        String code = resetPasswordRequest.getCode();
+        String newPassword = resetPasswordRequest.getNewPassword();
+
+        log.info("CODE IS: " + code);
+        log.info("NEW PASSWORD IS: " + newPassword);
+
+        // Find and validate code
+        PasswordResetCode resetCode = passwordResetRepo.findByCode(code)
+                .orElseThrow(() -> new BadRequestException("Invalid reset code"));
+
+        // Check expiration first
+        if (resetCode.getExpiryDate().isBefore(LocalDateTime.now())) {
+            passwordResetRepo.delete(resetCode); // Clean up expired code
+            throw new BadRequestException("Reset code has expired");
+        }
+
+        //update the password
+        User user = resetCode.getUser();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepo.save(user);
+
+        // Delete the code immediately after successful use
+        passwordResetRepo.delete(resetCode);
+
+        // Send password confirmation email
+        NotificationDTO passwordResetEmail = NotificationDTO.builder()
+                .recipient(user.getEmail())
+                .subject("Password Updated Successfully")
+                .templateName("password-update-confirmation")
+                .templateVariables(Map.of(
+                        "name", user.getName()
+                ))
+                .build();
+
+        notificationService.sendEmail(passwordResetEmail, user);
+
+        return Response.builder()
+                .statusCode(200)
+                .message("Password updated successfully")
                 .build();
     }
 

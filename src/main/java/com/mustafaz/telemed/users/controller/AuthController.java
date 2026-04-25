@@ -34,4 +34,9 @@ public class AuthController {
     public ResponseEntity<Response<?>> forgotPassword(@RequestBody ResetPasswordRequest resetPasswordRequest){
         return ResponseEntity.ok(authService.forgetPassword(resetPasswordRequest.getEmail()));
     }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Response<?>> resetPassword(@RequestBody ResetPasswordRequest resetPasswordRequest){
+        return ResponseEntity.ok(authService.updatePasswordViaResetCode(resetPasswordRequest));
+    }
 }
