@@ -11,12 +11,19 @@ import com.mustafaz.telemed.patient.repo.PatientRepo;
 import com.mustafaz.telemed.res.Response;
 import com.mustafaz.telemed.role.entity.Role;
 import com.mustafaz.telemed.role.repo.RoleRepo;
+import com.mustafaz.telemed.security.JwtService;
+import com.mustafaz.telemed.users.dto.LoginRequest;
+import com.mustafaz.telemed.users.dto.LoginResponse;
 import com.mustafaz.telemed.users.dto.RegistrationRequest;
 import com.mustafaz.telemed.users.entity.User;
 import com.mustafaz.telemed.users.repo.UserRepo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +40,8 @@ public class AuthServiceImpl implements AuthService {
     private final RoleRepo roleRepo;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
+    private final JwtService jwtService;
+    private final AuthenticationManager authenticationManager;
 
     private final PatientRepo patientRepo;
     private final DoctorRepo doctorRepo;
@@ -116,6 +125,37 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    @Override
+    public Response<LoginResponse> login(LoginRequest loginRequest) {
+        String userEmail = loginRequest.getEmail();
+        String userPassword = loginRequest.getPassword();
+
+//        // authenticate is best practice
+//        if (!passwordEncoder.matches(password, user.getPassword())) {
+//            throw new BadRequestException("Password doesn't match");
+//        }
+
+        authenticate(userEmail, userPassword);
+        // at this point here, the user has been authenticated and the username and password are correct.
+
+        User user = userRepo.findByEmail(loginRequest.getEmail()).orElseThrow(
+                () -> new NotFoundException("User not found")
+        );
+
+        String newGeneratedToken = jwtService.generateToken(user.getEmail());
+
+        LoginResponse loginResponse = LoginResponse.builder()
+                .roles(user.getRoles().stream().map(Role::getName).toList())
+                .token(newGeneratedToken)
+                .build();
+
+        return Response.<LoginResponse>builder()
+                .statusCode(200)
+                .message("Login Successful")
+                .data(loginResponse)
+                .build();
+    }
+
     private void createPatientProfile(User user) {
         Patient patient = Patient.builder()
                 .user(user)
@@ -148,5 +188,32 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         notificationService.sendEmail(welcomeEmail, user);
+    }
+
+    /**
+     * <p><strong>authenticationManager.authenticate():</strong></p>
+     * <ul>
+     *   <li>✅ Uses the configured UserDetailsService to load the user</li>
+     *   <li>✅ Uses your PasswordEncoder automatically</li>
+     *   <li>✅ Handles:
+     *     <ul>
+     *       <li>disabled users</li>
+     *       <li>locked accounts</li>
+     *       <li>expired credentials</li>
+     *     </ul>
+     *   </li>
+     *   <li>✅ Integrates with filters &amp; security context</li>
+     * </ul>
+     */
+    private void authenticate(String userEmail, String userPassword) {
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(userEmail, userPassword)
+            );
+        } catch (DisabledException e) {
+            throw new DisabledException("User is disabled", e);
+        } catch (BadCredentialsException e) {
+            throw new BadRequestException("Password doesn't match");
+        }
     }
 }

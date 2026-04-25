@@ -1,6 +1,8 @@
 package com.mustafaz.telemed.users.controller;
 
 import com.mustafaz.telemed.res.Response;
+import com.mustafaz.telemed.users.dto.LoginRequest;
+import com.mustafaz.telemed.users.dto.LoginResponse;
 import com.mustafaz.telemed.users.dto.RegistrationRequest;
 import com.mustafaz.telemed.users.service.AuthService;
 import jakarta.validation.Valid;
@@ -18,7 +20,12 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<Response<String >> register(@RequestBody @Valid RegistrationRequest registrationRequest){
+    public ResponseEntity<Response<String>> register(@RequestBody @Valid RegistrationRequest registrationRequest){
         return ResponseEntity.ok(authService.register(registrationRequest));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<Response<LoginResponse>> login(@RequestBody @Valid LoginRequest loginRequest) {
+        return ResponseEntity.ok(authService.login(loginRequest));
     }
 }
