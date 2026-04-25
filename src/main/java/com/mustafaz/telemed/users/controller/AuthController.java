@@ -4,6 +4,7 @@ import com.mustafaz.telemed.res.Response;
 import com.mustafaz.telemed.users.dto.LoginRequest;
 import com.mustafaz.telemed.users.dto.LoginResponse;
 import com.mustafaz.telemed.users.dto.RegistrationRequest;
+import com.mustafaz.telemed.users.dto.ResetPasswordRequest;
 import com.mustafaz.telemed.users.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,5 +28,10 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<Response<LoginResponse>> login(@RequestBody @Valid LoginRequest loginRequest) {
         return ResponseEntity.ok(authService.login(loginRequest));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Response<?>> forgotPassword(@RequestBody ResetPasswordRequest resetPasswordRequest){
+        return ResponseEntity.ok(authService.forgetPassword(resetPasswordRequest.getEmail()));
     }
 }

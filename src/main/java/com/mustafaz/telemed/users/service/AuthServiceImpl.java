@@ -15,7 +15,9 @@ import com.mustafaz.telemed.security.JwtService;
 import com.mustafaz.telemed.users.dto.LoginRequest;
 import com.mustafaz.telemed.users.dto.LoginResponse;
 import com.mustafaz.telemed.users.dto.RegistrationRequest;
+import com.mustafaz.telemed.users.entity.PasswordResetCode;
 import com.mustafaz.telemed.users.entity.User;
+import com.mustafaz.telemed.users.repo.PasswordResetRepo;
 import com.mustafaz.telemed.users.repo.UserRepo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,8 +49,14 @@ public class AuthServiceImpl implements AuthService {
     private final PatientRepo patientRepo;
     private final DoctorRepo doctorRepo;
 
+    private final CodeGenerator codeGenerator;
+    private final PasswordResetRepo passwordResetRepo;
+
     @Value("${login.link}")
     private String loginLink;
+
+    @Value("${password.reset.link}")
+    private String resetLink;
 
     @Override
     public Response<String> register(RegistrationRequest request) {
@@ -156,6 +165,43 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    @Override
+    public Response<?> forgetPassword(String email) {
+        User user = userRepo.findByEmail(email)
+                .orElseThrow(() -> new NotFoundException("User Not Found"));
+
+        passwordResetRepo.deleteByUserId(user.getId());
+
+        String code = codeGenerator.generateUniqueCode();
+
+        PasswordResetCode resetCode = PasswordResetCode.builder()
+                .user(user)
+                .code(code)
+                .expiryDate(calculateExpiryDate())
+                .used(false)
+                .build();
+
+        passwordResetRepo.save(resetCode);
+
+        //send email reset link out
+        NotificationDTO passwordResetEmail = NotificationDTO.builder()
+                .recipient(user.getEmail())
+                .subject("Password Reset Code")
+                .templateName("password-reset")
+                .templateVariables(Map.of(
+                        "name", user.getName(),
+                        "resetLink", resetLink + code
+                ))
+                .build();
+
+        notificationService.sendEmail(passwordResetEmail, user);
+
+        return Response.builder()
+                .statusCode(200)
+                .message("Password reset code sent to your email")
+                .build();
+    }
+
     private void createPatientProfile(User user) {
         Patient patient = Patient.builder()
                 .user(user)
@@ -215,5 +261,9 @@ public class AuthServiceImpl implements AuthService {
         } catch (BadCredentialsException e) {
             throw new BadRequestException("Password doesn't match");
         }
+    }
+
+    private LocalDateTime calculateExpiryDate() {
+        return LocalDateTime.now().plusHours(5);
     }
 }

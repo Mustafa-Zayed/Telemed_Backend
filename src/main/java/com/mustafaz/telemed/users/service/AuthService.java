@@ -9,4 +9,6 @@ public interface AuthService {
     Response<String> register(RegistrationRequest request);
 
     Response<LoginResponse> login(LoginRequest loginRequest);
+
+    Response<?> forgetPassword(String email);
 }
