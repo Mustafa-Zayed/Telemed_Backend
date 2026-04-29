@@ -38,7 +38,8 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
 
-    private final String uploadDir = "uploads/profile-pictures/"; // backend location for saving images
+//    private final String uploadDir = "uploads/profile-pictures/"; // backend location for saving images
+    private final String uploadDir = "D:/MyData/myWork/Spring/Full-Stack Health Care (Telemed) App Spring Boot & Angular/Code/Telemed_Frontend/public/profile-pictures/"; // frontend location for saving images
 
     @Override
     public User getCurrentUser() {
@@ -142,7 +143,9 @@ public class UserServiceImpl implements UserService {
             }
 
             if (user.getProfilePictureUrl() != null && !user.getProfilePictureUrl().isEmpty()) {
-                Path oldFile = Paths.get(user.getProfilePictureUrl());
+                // remove "/profile-pictures/" from the path, because it is added in getProfilePictureUrl()
+                Path oldFile = Paths.get(
+                        uploadDir.replace("/profile-pictures/", "") + user.getProfilePictureUrl());
                 if (Files.exists(oldFile)) {
                     Files.delete(oldFile);
                 }
@@ -159,7 +162,8 @@ public class UserServiceImpl implements UserService {
             Path filePath = uploadPath.resolve(newFileName);
 
             Files.copy(file.getInputStream(), filePath);
-            String fileUrl = uploadDir + newFileName;
+//            String fileUrl = uploadDir + newFileName;
+            String fileUrl = "/profile-pictures/" + newFileName; // frontend location for saving images
 
             user.setProfilePictureUrl(fileUrl);
             userRepo.save(user);
