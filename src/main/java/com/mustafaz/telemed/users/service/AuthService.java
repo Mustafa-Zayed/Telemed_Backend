@@ -5,6 +5,7 @@ import com.mustafaz.telemed.users.dto.LoginRequest;
 import com.mustafaz.telemed.users.dto.LoginResponse;
 import com.mustafaz.telemed.users.dto.RegistrationRequest;
 import com.mustafaz.telemed.users.dto.ResetPasswordRequest;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 
 public interface AuthService {
     Response<String> register(RegistrationRequest request);
@@ -14,4 +15,6 @@ public interface AuthService {
     Response<?> forgetPassword(String email);
 
     Response<?> updatePasswordViaResetCode(ResetPasswordRequest resetPasswordRequest);
+
+    Response<LoginResponse> loginRegisterByGoogleOAuth2(OAuth2AuthenticationToken oAuth2AuthenticationToken);
 }

@@ -2,6 +2,7 @@ package com.mustafaz.telemed.users.service;
 
 import com.mustafaz.telemed.doctor.entity.Doctor;
 import com.mustafaz.telemed.doctor.repo.DoctorRepo;
+import com.mustafaz.telemed.enums.AuthProvider;
 import com.mustafaz.telemed.exceptions.BadRequestException;
 import com.mustafaz.telemed.exceptions.NotFoundException;
 import com.mustafaz.telemed.notifications.dto.NotificationDTO;
@@ -20,20 +21,25 @@ import com.mustafaz.telemed.users.entity.PasswordResetCode;
 import com.mustafaz.telemed.users.entity.User;
 import com.mustafaz.telemed.users.repo.PasswordResetRepo;
 import com.mustafaz.telemed.users.repo.UserRepo;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -136,6 +142,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public Response<LoginResponse> login(LoginRequest loginRequest) {
         String userEmail = loginRequest.getEmail();
         String userPassword = loginRequest.getPassword();
@@ -151,6 +158,9 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepo.findByEmail(loginRequest.getEmail()).orElseThrow(
                 () -> new NotFoundException("User not found")
         );
+
+        if (!user.getAuthProvider().equals(AuthProvider.LOCAL))
+            userRepo.updateAuthenticationType(user.getId(), AuthProvider.LOCAL);
 
         String newGeneratedToken = jwtService.generateToken(user.getEmail());
 
@@ -244,6 +254,72 @@ public class AuthServiceImpl implements AuthService {
         return Response.builder()
                 .statusCode(200)
                 .message("Password updated successfully")
+                .build();
+    }
+
+    @Transactional
+    @Override
+    public Response<LoginResponse> loginRegisterByGoogleOAuth2(OAuth2AuthenticationToken oAuth2AuthenticationToken) {
+        if(oAuth2AuthenticationToken == null){
+            log.error("OAuth2AuthenticationToken is null. Cannot process login/registration.");
+            return Response.<LoginResponse>builder()
+                    .statusCode(HttpStatus.BAD_REQUEST.value())
+                    .message("Authentication token is missing")
+                    .data(null)
+                    .build();
+        }
+        OAuth2User oAuth2User = oAuth2AuthenticationToken.getPrincipal();
+
+        String email = oAuth2User.getAttribute("email");
+
+        String firstName = oAuth2User.getAttribute("given_name");
+
+        User user = userRepo.findByEmail(email).orElse(null);
+
+        // Not existed before, register it first
+        if(user == null){
+            Role defaultRole = roleRepo.findByName("PATIENT")
+                    .orElseThrow(() -> new NotFoundException("PATIENT role Not Found"));
+
+            List<Role> userRoles = List.of(defaultRole);
+
+            assert email != null;
+            User userToSave = User.builder()
+                    .name(firstName)
+                    .email(email.toLowerCase())
+                    .roles(userRoles)
+                    .authProvider(AuthProvider.GOOGLE)
+                    .build();
+
+            user = userRepo.save(userToSave);
+
+            createPatientProfile(user);
+
+            // 5. Send welcome email out
+            RegistrationRequest registrationRequest = new RegistrationRequest();
+            registrationRequest.setName(user.getName());
+
+            sendRegistrationEmail(registrationRequest, user);
+        }
+
+        if (!user.getAuthProvider().equals(AuthProvider.GOOGLE))
+            userRepo.updateAuthenticationType(user.getId(), AuthProvider.GOOGLE);
+
+        String token = jwtService.generateToken(user.getEmail());
+
+        List<String> roleNames = user.getRoles().stream()
+                .map(Role::getName)
+                .collect(Collectors.toList());
+
+        LoginResponse loginData = LoginResponse.builder()
+                .token(token)
+                .roles(roleNames)
+                .build();
+
+        return Response.<LoginResponse>builder()
+                .statusCode(HttpStatus.OK.value())
+                .message("Login Successful")
+                .data(loginData)
                 .build();
     }
 

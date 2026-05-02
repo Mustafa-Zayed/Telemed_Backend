@@ -6,13 +6,13 @@ import com.mustafaz.telemed.users.dto.LoginResponse;
 import com.mustafaz.telemed.users.dto.RegistrationRequest;
 import com.mustafaz.telemed.users.dto.ResetPasswordRequest;
 import com.mustafaz.telemed.users.service.AuthService;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
 
 @RequiredArgsConstructor
 @RequestMapping("/api/auth")
@@ -38,5 +38,14 @@ public class AuthController {
     @PostMapping("/reset-password")
     public ResponseEntity<Response<?>> resetPassword(@RequestBody ResetPasswordRequest resetPasswordRequest){
         return ResponseEntity.ok(authService.updatePasswordViaResetCode(resetPasswordRequest));
+    }
+
+    /**
+     * Called when the user clicks on the Google login button.
+     * It redirects the user to the Google login page.
+     */
+    @GetMapping("/login/google")
+    public void startGoogleLogin(HttpServletResponse response) throws IOException {
+        response.sendRedirect("/oauth2/authorization/google");
     }
 }

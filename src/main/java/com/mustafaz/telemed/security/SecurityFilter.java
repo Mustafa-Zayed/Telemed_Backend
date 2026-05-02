@@ -2,6 +2,8 @@ package com.mustafaz.telemed.security;
 
 import com.mustafaz.telemed.exceptions.CustomAccessDenialHandler;
 import com.mustafaz.telemed.exceptions.CustomAuthenticationEntryPoint;
+import com.mustafaz.telemed.security.oauth2.CustomOAuth2FailureHandler;
+import com.mustafaz.telemed.security.oauth2.CustomOAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,6 +29,8 @@ public class SecurityFilter {
     private final AuthFilter authFilter;
     private final CustomAuthenticationEntryPoint customAuthenticationEntryPoint;
     private final CustomAccessDenialHandler customAccessDenialHandler;
+    private final CustomOAuth2SuccessHandler customOAuth2SuccessHandler;
+    private final CustomOAuth2FailureHandler customOAuth2FailureHandler;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity){
@@ -38,6 +42,9 @@ public class SecurityFilter {
                 .authorizeHttpRequests(req ->
                         req.requestMatchers("/api/auth/**", "/api/doctors/**").permitAll()
                                 .anyRequest().authenticated())
+                .oauth2Login(oauth2 ->
+                        oauth2.successHandler(customOAuth2SuccessHandler)
+                                .failureHandler(customOAuth2FailureHandler))
                 .sessionManagement(mag ->
                         mag.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(authFilter, UsernamePasswordAuthenticationFilter.class);
